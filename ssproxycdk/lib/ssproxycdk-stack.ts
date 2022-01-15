@@ -80,7 +80,7 @@ export class SsproxycdkStack extends cdk.Stack {
       // keyName: key.keyPairName,
       role: role,
       keyName: 'demo-kp',
-      vpcSubnets: {subnetType: ec2.SubnetType.PUBLIC}
+      vpcSubnets: {subnetType: ec2.SubnetType.PRIVATE_WITH_NAT}
     });
 
     const lb = new elb.LoadBalancer(this, 'LB', {
@@ -113,6 +113,12 @@ export class SsproxycdkStack extends cdk.Stack {
     });
     asset.grantRead(asg.role);
 
+    new ec2.InterfaceVpcEndpoint(this, 'SM API VPC Endpoint', {
+      vpc,
+      service: new ec2.InterfaceVpcEndpointService('com.amazonaws.us-west-2.sagemaker.api', 443),
+      // Choose which availability zones to place the VPC endpoint in, based on
+      // available AZs
+    });
 
     
 
