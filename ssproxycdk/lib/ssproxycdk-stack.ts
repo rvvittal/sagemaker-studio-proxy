@@ -113,6 +113,8 @@ export class SsproxycdkStack extends cdk.Stack {
     });
     asset.grantRead(asg.role);
 
+     
+
     new ec2.InterfaceVpcEndpoint(this, 'SM API VPC Endpoint', {
       vpc,
       service: new ec2.InterfaceVpcEndpointService('com.amazonaws.us-west-2.sagemaker.api', 443),
