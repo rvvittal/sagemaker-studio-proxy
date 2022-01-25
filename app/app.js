@@ -5,6 +5,15 @@ const app = express();
 
 region='us-east-1'
 
+const arglen = process.argv.length;
+
+console.log(arglen);
+
+if (arglen < 3) {
+        console.log('argument region=$value is required')
+        process.exit(1)
+}
+
 // print process.argv
 process.argv.forEach((val, index) => {
   console.log(`${index}: ${val}`)
@@ -13,6 +22,11 @@ process.argv.forEach((val, index) => {
     console.log(region)
   }
 })
+
+
+var str = region;
+var n = str.lastIndexOf('=');
+var region = str.substring(n + 1);
 
 
 // Load the SDK and UUID
@@ -70,26 +84,23 @@ app.get('/', (req, res) => {
 
   console.log(params);
 
-
-
   sagemaker.createPresignedDomainUrl(params, function(err, data) {
     
   if (err) console.log(err, err.stack); // an error occurred
   else   {
-    console.log(data);  
     authurl = data.AuthorizedUrl;
     console.log('authurl:' +authurl);
-    authHtml = "<html><head/><body><a href='" +authurl + "'>Open Studio</a>" + "</body></html>";
-    console.log(authHtml);
+    res.writeHead(301, { "Location": authurl });
+    return res.end();
 
   }           // successful response
 });
 
-	res.send(authHtml);
+	
 });
 
 
 app.listen(port, () => {
-	console.log("hello world")
+	console.log("listening.." +port)
 });
 

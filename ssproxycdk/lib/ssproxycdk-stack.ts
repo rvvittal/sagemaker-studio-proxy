@@ -2,6 +2,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as path from 'path';
+
 // import { KeyPair } from 'cdk-ec2-key-pair';
 import { Asset } from 'aws-cdk-lib/aws-s3-assets';
 import { Construct } from 'constructs';
@@ -11,6 +12,11 @@ import autoscaling = require('aws-cdk-lib/aws-autoscaling');
 import * as cfn_inc from '@aws-cdk/cloudformation-include';
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { LoadBalancingProtocol } from "aws-cdk-lib/aws-elasticloadbalancing";
+import * as cfninc from 'aws-cdk-lib/cloudformation-include';
+import { CoreDnsComputeType } from "aws-cdk-lib/aws-eks";
+import { CfnOutput } from "aws-cdk-lib";
+
+
 
 
 export class SsproxycdkStack extends cdk.Stack {
@@ -92,8 +98,6 @@ export class SsproxycdkStack extends cdk.Stack {
     });
 
 
-  
-
     lb.addTarget(asg);
     const listener = lb.addListener({ internalPort: 3000, externalPort: 80, externalProtocol: LoadBalancingProtocol.HTTP});
     
@@ -122,14 +126,47 @@ export class SsproxycdkStack extends cdk.Stack {
       // available AZs
     });
 
-    
+    const vpcPrivateSubnetsId = vpc.selectSubnets({subnetType: ec2.SubnetType.PRIVATE_WITH_NAT}).subnetIds;
 
-    // Create outputs for connecting
-    // new cdk.CfnOutput(this, 'IP Address', { value: ec2Instance.instancePublicIp });
-    // new cdk.CfnOutput(this, 'Key Name', { value: key.keyPairName })
-   // new cdk.CfnOutput(this, 'Download Key Command', { value: 'aws secretsmanager get-secret-value --secret-id ec2-ssh-key/cdk-keypair/private --query SecretString --output text > cdk-key.pem && chmod 400 cdk-key.pem' })
-    // new cdk.CfnOutput(this, 'ssh command', { value: 'ssh -i demo-kp.pem -o IdentitiesOnly=yes ec2-user@' + ec2Instance.instancePublicIp })
-  }
+    const smrole = new iam.Role(this, 'RoleForSagemakerStudioUsers', {
+      assumedBy: new iam.ServicePrincipal('sagemaker.amazonaws.com'),
+      roleName: "RoleSagemakerStudioUsers",
+      managedPolicies: [
+        iam.ManagedPolicy.fromManagedPolicyArn(this, 'smreadaccess',  "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess")
+                                              
+      ]
+    })
+
+
+    const smDomain = new cfninc.CfnInclude(this, 'SagemakerDomainTemplate', {
+      templateFile: 'lib/sagemaker-domain-template.yaml',
+      preserveLogicalIds: false,
+      parameters: {
+        "auth_mode": "IAM",
+        "domain_name": 'mySagemakerStudioDomain',
+        "vpc_id": vpc.vpcId,
+        "subnet_ids": vpcPrivateSubnetsId,
+        "default_execution_role_user": smrole.roleArn,
+        "app_net_access_type":  'VpcOnly',
+      },
+    });
+
+
+    const sagemaker_domain_id = smDomain.getResource('SagemakerDomainCDK').ref
+
+    const smUser = new cfninc.CfnInclude(this, 'SagemakerUserTemplate', {
+      templateFile: 'lib/sagemaker-user-template.yaml',
+      preserveLogicalIds: false,
+      parameters: {
+        "sagemaker_domain_id": sagemaker_domain_id,
+        "user_profile_name": 'sm-user',
+        
+      },
+    });
+
+
+
+    }
   
 
 

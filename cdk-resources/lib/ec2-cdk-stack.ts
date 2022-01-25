@@ -94,7 +94,8 @@ export class Ec2CdkStack extends cdk.Stack {
   
 
     lb.addTarget(asg);
-    const listener = lb.addListener({ externalPort: 80 });
+    const listener = lb.addListener({ externalPort: 3000 });
+    
 
     listener.connections.allowDefaultPortFromAnyIpv4('Open to the world');
 
