@@ -1,6 +1,7 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as path from 'path';
 
 // import { KeyPair } from 'cdk-ec2-key-pair';
@@ -15,8 +16,7 @@ import { LoadBalancingProtocol } from "aws-cdk-lib/aws-elasticloadbalancing";
 import * as cfninc from 'aws-cdk-lib/cloudformation-include';
 import { CoreDnsComputeType } from "aws-cdk-lib/aws-eks";
 import { CfnOutput } from "aws-cdk-lib";
-
-
+import {readFileSync} from 'fs';
 
 
 export class SsproxycdkStack extends cdk.Stack {
@@ -104,24 +104,24 @@ export class SsproxycdkStack extends cdk.Stack {
 
     listener.connections.allowDefaultPortFromAnyIpv4('Open to the world');
 
-    // Create an asset that will be used as part of User Data to run on first load
-    const asset = new Asset(this, 'Asset', { path: path.join(__dirname, '../src/config.sh') });
-    const localPath = asg.userData.addS3DownloadCommand({
-      bucket: asset.bucket,
-      bucketKey: asset.s3ObjectKey,
-    });
-
-    asg.userData.addExecuteFileCommand({
-      filePath: localPath,
-      arguments: '--verbose -y'
-    });
-    asset.grantRead(asg.role);
+    // 👇 load user data script
+    const userDataScript = readFileSync('./lib/config.sh', 'utf8');
+    // 👇 add user data to the EC2 instance
+    asg.addUserData(userDataScript);
 
      
-
     new ec2.InterfaceVpcEndpoint(this, 'SM API VPC Endpoint', {
       vpc,
       service: new ec2.InterfaceVpcEndpointService('com.amazonaws.us-west-2.sagemaker.api', 443),
+      privateDnsEnabled: true,
+      // Choose which availability zones to place the VPC endpoint in, based on
+      // available AZs
+    });
+
+    new ec2.InterfaceVpcEndpoint(this, 'Studio VPC Endpoint', {
+      vpc,
+      service: new ec2.InterfaceVpcEndpointService('aws.sagemaker.us-west-2.studio', 443),
+      privateDnsEnabled: true,
       // Choose which availability zones to place the VPC endpoint in, based on
       // available AZs
     });
@@ -136,6 +136,8 @@ export class SsproxycdkStack extends cdk.Stack {
                                               
       ]
     })
+
+    
 
 
     const smDomain = new cfninc.CfnInclude(this, 'SagemakerDomainTemplate', {
@@ -159,14 +161,47 @@ export class SsproxycdkStack extends cdk.Stack {
       preserveLogicalIds: false,
       parameters: {
         "sagemaker_domain_id": sagemaker_domain_id,
-        "user_profile_name": 'sm-user',
+        "user_profile_name": 'sm-studio-user',
         
       },
     });
 
 
+    const smStudioUser = new ssm.StringParameter(this, 'studio-user-param', {
+      parameterName: '/sagemaker-studio-proxy/dev/studio-user-profile-name',
+      stringValue: 'sm-studio-user',
+      description: 'sagemaker studio user',
+      type: ssm.ParameterType.STRING,
+      tier: ssm.ParameterTier.STANDARD,
+      allowedPattern: '.*',
+    });
+
+    const smStudioDomain = new ssm.StringParameter(this, 'studio-domain-param', {
+      parameterName: '/sagemaker-studio-proxy/dev/studio-domain-name',
+      stringValue: sagemaker_domain_id,
+      description: 'sagemaker studio domain',
+      type: ssm.ParameterType.STRING,
+      tier: ssm.ParameterTier.STANDARD,
+      allowedPattern: '.*',
+    });
+
+    const region = String(process.env.CDK_DEFAULT_REGION)
+
+    const studioRegion = new ssm.StringParameter(this, 'studio-region-param', {
+      parameterName: '/sagemaker-studio-proxy/dev/studio-domain-region',
+      stringValue: region,
+      description: 'sagemaker studio domain region',
+      type: ssm.ParameterType.STRING,
+      tier: ssm.ParameterTier.STANDARD,
+      allowedPattern: '.*',
+    });
+
 
     }
+
+
+    
+
   
 
 

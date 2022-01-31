@@ -5,30 +5,6 @@ const app = express();
 
 region='us-east-1'
 
-const arglen = process.argv.length;
-
-console.log(arglen);
-
-if (arglen < 3) {
-        console.log('argument region=$value is required')
-        process.exit(1)
-}
-
-// print process.argv
-process.argv.forEach((val, index) => {
-  console.log(`${index}: ${val}`)
-  if(index == 2) {
-    region = val
-    console.log(region)
-  }
-})
-
-
-var str = region;
-var n = str.lastIndexOf('=');
-var region = str.substring(n + 1);
-
-
 // Load the SDK and UUID
 var AWS = require('aws-sdk');
 var uuid = require('uuid');
@@ -46,6 +22,17 @@ var paramProfile ='';
 const ssmClient = new AWS.SSM({
   apiVersion: '2014-11-06',
   region: region
+});
+
+ssmClient.getParameter({
+  Name: '/sagemaker-studio-proxy/dev/studio-domain-region',
+  WithDecryption: true,
+}, (err, data) => {
+  if (data.Parameter) {
+    console.log(data.Parameter.Value)
+    region = data.Parameter.Value
+
+  }
 });
 
 ssmClient.getParameter({
