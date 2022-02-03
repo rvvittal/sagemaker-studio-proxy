@@ -187,7 +187,25 @@ export class SsproxycdkStack extends cdk.Stack {
 
     const region = String(process.env.CDK_DEFAULT_REGION)
 
-    const studioRegion = new ssm.StringParameter(this, 'studio-region-param', {
+    const presignedUrlTimeout = new ssm.StringParameter(this, 'studio-presigned-url-timeout', {
+      parameterName: '/sagemaker-studio-proxy/dev/studio-presigned-url-timeout',
+      stringValue: '60',
+      description: 'sagemaker studio presigned url timeout',
+      type: ssm.ParameterType.STRING,
+      tier: ssm.ParameterTier.STANDARD,
+      allowedPattern: '.*',
+    });
+
+    const studioSessionTimeout = new ssm.StringParameter(this, 'studio-session-timeout', {
+      parameterName: '/sagemaker-studio-proxy/dev/studio-session-timeout',
+      stringValue: '3600',
+      description: 'sagemaker studio sesion timeout',
+      type: ssm.ParameterType.STRING,
+      tier: ssm.ParameterTier.STANDARD,
+      allowedPattern: '.*',
+    });
+
+    const studioRegion = new ssm.StringParameter(this, 'studio-domain-region', {
       parameterName: '/sagemaker-studio-proxy/dev/studio-domain-region',
       stringValue: region,
       description: 'sagemaker studio domain region',
@@ -195,6 +213,14 @@ export class SsproxycdkStack extends cdk.Stack {
       tier: ssm.ParameterTier.STANDARD,
       allowedPattern: '.*',
     });
+
+
+
+    // 👇 add the ELB DNS as an Output
+    new cdk.CfnOutput(this, 'elbDNS', {
+      value: lb.loadBalancerDnsName,
+    });
+  }
 
 
     }
