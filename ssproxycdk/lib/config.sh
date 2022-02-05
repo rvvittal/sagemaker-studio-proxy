@@ -21,6 +21,7 @@ mkdir -p /home/ec2-user/sagemaker-studio-proxy
 git clone https://github.com/rvvittal/sagemaker-studio-proxy.git /home/ec2-user/sagemaker-studio-proxy
 cd /home/ec2-user/sagemaker-studio-proxy/app
 npm install
+npm install forever -g
 
 EOF
  

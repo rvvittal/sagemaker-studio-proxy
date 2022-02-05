@@ -17,6 +17,8 @@ import * as cfninc from 'aws-cdk-lib/cloudformation-include';
 import { CoreDnsComputeType } from "aws-cdk-lib/aws-eks";
 import { CfnOutput } from "aws-cdk-lib";
 import {readFileSync} from 'fs';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { Protocol } from "aws-cdk-lib/aws-ec2";
 
 
 export class SsproxycdkStack extends cdk.Stack {
@@ -86,22 +88,51 @@ export class SsproxycdkStack extends cdk.Stack {
       // keyName: key.keyPairName,
       role: role,
       keyName: 'demo-kp',
-      vpcSubnets: {subnetType: ec2.SubnetType.PRIVATE_WITH_NAT}
+      vpcSubnets: {subnetType: ec2.SubnetType.PRIVATE_WITH_NAT},
+      minCapacity: 2,
+      maxCapacity: 3
     });
 
-    const lb = new elb.LoadBalancer(this, 'LB', {
+    
+
+    const alb = new elbv2.ApplicationLoadBalancer(this, 'alb', {
       vpc,
       internetFacing: true,
+    });
+
+    const listener = alb.addListener('Listener', {
+      port: 80,
+      open: true,
+    });
+
+   //const listener = lb.addListener({ internalPort: 3000, externalPort: 80, externalProtocol: LoadBalancingProtocol.HTTP});
+    
+
+
+    //lb.addTarget(asg);
+    listener.addTargets('default-target', {
+      port: 3000,
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      targets: [asg],
       healthCheck: {
-        port: 3000
+        path: '/',
+        port: '3000',
+        unhealthyThresholdCount: 2,
+        healthyThresholdCount: 5,
+        interval: cdk.Duration.seconds(30),
+        healthyHttpCodes: '301',
+      
       },
     });
 
+    asg.scaleOnRequestCount('requests-per-minute', {
+      targetRequestsPerMinute: 60,
+    });
 
-    lb.addTarget(asg);
-    const listener = lb.addListener({ internalPort: 3000, externalPort: 80, externalProtocol: LoadBalancingProtocol.HTTP});
-    
-
+    asg.scaleOnCpuUtilization('cpu-util-scaling', {
+      targetUtilizationPercent: 75,
+    });
+     
     listener.connections.allowDefaultPortFromAnyIpv4('Open to the world');
 
     // 👇 load user data script
@@ -217,13 +248,13 @@ export class SsproxycdkStack extends cdk.Stack {
 
 
     // 👇 add the ELB DNS as an Output
-    new cdk.CfnOutput(this, 'elbDNS', {
-      value: lb.loadBalancerDnsName,
+    new cdk.CfnOutput(this, 'albDNS', {
+      value: alb.loadBalancerDnsName,
     });
   }
 
 
-    }
+}
 
 
     
@@ -231,6 +262,6 @@ export class SsproxycdkStack extends cdk.Stack {
   
 
 
-}
+
 
 
