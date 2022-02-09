@@ -22,6 +22,9 @@ git clone https://github.com/rvvittal/sagemaker-studio-proxy.git /home/ec2-user/
 cd /home/ec2-user/sagemaker-studio-proxy/app
 npm install
 npm install forever -g
+EC2_AVAIL_ZONE=`curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone`
+EC2_REGION="`echo \"$EC2_AVAIL_ZONE\" | sed 's/[a-z]$//'`"
+forever start app.js region=$EC2_REGION
 
 EOF
  
